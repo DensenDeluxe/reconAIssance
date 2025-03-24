@@ -1,3 +1,18 @@
 requests
 playwright
 huggingface_hub
+# Python dependencies
+playwright
+markdown
+weasyprint
+huggingface_hub
+requests
+ipaddress
+
+# Optional CLI tools
+subfinder
+amass
+hashcat
+crunch
+sshpass
+nc
