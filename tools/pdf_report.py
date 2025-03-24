@@ -14,60 +14,60 @@ TEMPLATE = """
   <meta charset="UTF-8">
   <title>ReconAIssance Report</title>
   <style>
-    body {{
+    body {
       background-color: #111;
       color: #ddd;
       font-family: 'Courier New', monospace;
       padding: 2em;
-    }}
-    h1, h2, h3 {{
+    }
+    h1, h2, h3 {
       color: #4caf50;
       border-bottom: 1px solid #444;
-    }}
-    table {{
+    }
+    table {
       width: 100%;
       border-collapse: collapse;
       margin: 1em 0;
-    }}
-    th, td {{
+    }
+    th, td {
       border: 1px solid #555;
       padding: 0.5em;
-    }}
-    th {{
+    }
+    th {
       background-color: #222;
       color: #fff;
-    }}
-    td.critical {{ background-color: #b71c1c; color: #fff; font-weight: bold; }}
-    td.high     {{ background-color: #f57c00; color: #fff; }}
-    td.medium   {{ background-color: #fbc02d; color: #000; }}
-    td.low      {{ background-color: #388e3c; color: #fff; }}
-    footer {{
+    }
+    td.critical { background-color: #b71c1c; color: #fff; font-weight: bold; }
+    td.high     { background-color: #f57c00; color: #fff; }
+    td.medium   { background-color: #fbc02d; color: #000; }
+    td.low      { background-color: #388e3c; color: #fff; }
+    footer {
       text-align: center;
       margin-top: 4em;
       font-size: 0.8em;
       color: #888;
-    }}
+    }
   </style>
 </head>
 <body>
   <h1>ReconAIssance Intelligence & Exploitation Summary</h1>
-  <p><b>Target:</b> {{target}}</p>
-  <p><b>Run Date:</b> {{date}}</p>
+  <p><b>Target:</b> {target}</p>
+  <p><b>Run Date:</b> {date}</p>
 
   <h2>Executive Summary</h2>
-  <p>{{summary}}</p>
+  <p>{summary}</p>
 
   <h2>Discovered CVEs</h2>
-  {{cve_table}}
+  {cve_table}
 
   <h2>Exploit Results</h2>
-  {{exploit_table}}
+  {exploit_table}
 
   <h2>Recon & OSINT</h2>
-  {{recon_data}}
+  {recon_data}
 
   <h2>Post-Exploitation Findings</h2>
-  {{loot_data}}
+  {loot_data}
 
   <footer>CONFIDENTIAL | Authorized Personnel Only</footer>
 </body>
