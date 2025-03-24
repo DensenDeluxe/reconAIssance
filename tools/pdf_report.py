@@ -7,7 +7,7 @@ import json
 from llm_wrapper import use_llm
 from datetime import datetime
 
-TEMPLATE = f"""
+TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
