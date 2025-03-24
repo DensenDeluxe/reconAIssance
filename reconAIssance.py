@@ -41,6 +41,7 @@ def export_zip(target, run_path):
                     full_path = os.path.join(root, file)
                     rel_path = os.path.relpath(full_path, run_path)
                     zipf.write(full_path, arcname=rel_path)
+        os.chmod(zip_path, 0o644)  # ✅ Fix: Weltlesbar machen
         print(f"[✅] Exported to desktop: {zip_path}")
     except Exception as e:
         print(f"[❌] ZIP export failed: {e}")
