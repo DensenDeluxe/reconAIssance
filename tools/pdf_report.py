@@ -1,4 +1,6 @@
 import os
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), "tools")))
 import markdown
 import weasyprint
 import json
@@ -7,20 +9,20 @@ from datetime import datetime
 
 TEMPLATE = """
 <!DOCTYPE html>
-<html lang="en">
+<html lang=\"en\">
 <head>
-  <meta charset="UTF-8">
+  <meta charset=\"UTF-8\">
   <title>ReconAIssance Report</title>
   <style>
-    body { font-family: monospace; background: #111; color: #ddd; padding: 2em; }
+    body { font-family: monospace; background-color: #111; color: #ddd; padding: 2em; }
     h1, h2, h3 { color: #4caf50; border-bottom: 1px solid #444; }
     table { border-collapse: collapse; width: 100%; margin: 1em 0; }
     th, td { border: 1px solid #555; padding: 0.5em; }
-    th { background: #222; color: #fff; }
-    td.critical { background: #b71c1c; color: #fff; font-weight: bold; }
-    td.high     { background: #f57c00; color: #fff; }
-    td.medium   { background: #fbc02d; color: #000; }
-    td.low      { background: #388e3c; color: #fff; }
+    th { background-color: #222; color: #fff; }
+    td.critical { background-color: #b71c1c; color: #fff; font-weight: bold; }
+    td.high     { background-color: #f57c00; color: #fff; }
+    td.medium   { background-color: #fbc02d; color: #000; }
+    td.low      { background-color: #388e3c; color: #fff; }
     footer { text-align: center; margin-top: 4em; font-size: 0.8em; color: #888; }
   </style>
 </head>
