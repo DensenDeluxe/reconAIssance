@@ -33,32 +33,32 @@ It merges traditional offensive security tooling (Metasploit, SSH, Hashcat) with
 
 ```
 reconAIssance/
-├── modules/                       			# Core functional modules (each run phase)
-│   ├── recon.py                  				# Basic scan (SSH/HTTP/SSL + GitHub + DNS)
-│   ├── scriptmind.py            			# LLM-based Superscript generation & replay
-│   ├── recon_subdomains.py      		# Subdomain service scan
-│   ├── cve.py                   				# CVE lookup + LLM risk scoring
-│   ├── exploit.py               				# Builds/runs Metasploit .rc files
-│   ├── post.py                  				# LLM shell summarizer
-│   ├── sshchain.py              			# SSH session command chain
-│   ├── hash.py                  				# Finds hashes (shadow/passwd/htpasswd etc.)
-│   ├── hash_crunch.py           			# LLM-driven crunch + hashcat pipeline
-│   ├── fallback_brute.py        			# Username/password fallback brute
-│   └── render.py                				# HTML report generation
+├── modules/                      # Core functional modules (each run phase)
+│   ├── recon.py                  # Basic scan (SSH/HTTP/SSL + GitHub + DNS)
+│   ├── scriptmind.py            	# LLM-based Superscript generation & replay
+│   ├── recon_subdomains.py      	# Subdomain service scan
+│   ├── cve.py                   	# CVE lookup + LLM risk scoring
+│   ├── exploit.py               	# Builds/runs Metasploit .rc files
+│   ├── post.py                  	# LLM shell summarizer
+│   ├── sshchain.py              	# SSH session command chain
+│   ├── hash.py                  	# Finds hashes (shadow/passwd/htpasswd etc.)
+│   ├── hash_crunch.py           	# LLM-driven crunch + hashcat pipeline
+│   ├── fallback_brute.py        	# Username/password fallback brute
+│   └── render.py                	# HTML report generation
 │
-├── tools/                        				# LLM tools, wrappers, CVE mapping etc.
-│   ├── llm_wrapper.py            			# Central Hugging Face interface
-│   ├── llm_controller.py         			# Model selection helper
-│   ├── llm_logger.py             			# Prompt logging
-│   ├── msf_module_matcher.py     	# Suggests valid exploits from CVEs
-│   ├── msf_module_inventory.py   	# Builds local MSF module index
-│   ├── cve2exploit_map.py        		# Maps CVEs to modules
-│   ├── superscript_cve_infer.py  		# Infers CVEs based on behavior/class
-│   ├── scriptmind_chart.py       		# Generates class usage chart (Chart.js)
-│   ├── apitoken.txt              			# Required: Hugging Face API token
-│   └── github_token.txt          			# Optional: GitHub API token for leak search
+├── tools/                        # LLM tools, wrappers, CVE mapping etc.
+│   ├── llm_wrapper.py            # Central Hugging Face interface
+│   ├── llm_controller.py         # Model selection helper
+│   ├── llm_logger.py             # Prompt logging
+│   ├── msf_module_matcher.py     # Suggests valid exploits from CVEs
+│   ├── msf_module_inventory.py   # Builds local MSF module index
+│   ├── cve2exploit_map.py        # Maps CVEs to modules
+│   ├── superscript_cve_infer.py  # Infers CVEs based on behavior/class
+│   ├── scriptmind_chart.py       # Generates class usage chart (Chart.js)
+│   ├── apitoken.txt              # Required: Hugging Face API token
+│   └── github_token.txt          # Optional: GitHub API token for leak search
 │
-├── loot/                         					# All run output
+├── loot/                         # All run output
 │   └── <target>/runYYYYMMDD.../
 │       ├── recon.txt
 │       ├── cve_summary.json
@@ -74,12 +74,12 @@ reconAIssance/
 │       ├── promptlog.jsonl
 │       └── cve_report.html
 │
-├── UN/                          					# Username lists (e.g. top-usernames.txt)
-├── PW/                          				# Password lists (e.g. rockyou.txt)
-├── input.txt                    				# Optional: one target per line
-├── reconAIssance.py             			# Master launcher
-├── install.sh                   				# Auto-installer
-├── requirements.txt             			# Python dependencies
+├── UN/                          	# Username lists (e.g. top-usernames.txt)
+├── PW/                          	# Password lists (e.g. rockyou.txt)
+├── input.txt                    	# Optional: one target per line
+├── reconAIssance.py             	# Master launcher
+├── install.sh                   	# Auto-installer
+├── requirements.txt             	# Python dependencies
 ├── LICENSE
 └── README.md
 ```
