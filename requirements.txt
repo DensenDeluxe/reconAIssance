@@ -1,7 +1,4 @@
-requests
-playwright
-huggingface_hub
-# Python dependencies
+# Core Dependencies
 playwright
 markdown
 weasyprint
@@ -9,10 +6,9 @@ huggingface_hub
 requests
 ipaddress
 
-# Optional CLI tools
-subfinder
-amass
-hashcat
-crunch
-sshpass
-nc
+# CLI Tools (installed via apt, not pip – just listed hier zur Erinnerung)
+# sshpass
+# crunch
+# hashcat
+# subfinder
+# amass
