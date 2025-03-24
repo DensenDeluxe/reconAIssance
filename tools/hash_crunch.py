@@ -1,10 +1,14 @@
 import os
+import sys
 import json
 import subprocess
 from pathlib import Path
+from datetime import datetime
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), "tools")))
+
 from llm_wrapper import use_llm
 from hash import find_sources, extract, guess_mode
-from datetime import datetime
 
 def load_usernames(run_path):
     brute_file = os.path.join(run_path, "ssh_brute_result.json")
