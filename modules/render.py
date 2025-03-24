@@ -38,6 +38,9 @@ def scriptmind_section(path):
     chart = os.path.join(path, "scriptmind_chart.html")
     if os.path.exists(chart):
         html.append(f"<p><a href='scriptmind_chart.html' target='_blank'>Class Chart</a></p>")
+    shodan = os.path.join(path, "shodan_summary.json")
+    if os.path.exists(shodan):
+        html.append(f"<p><a href='shodan_summary.json' target='_blank'>Shodan Exposure</a></p>")
     return "".join(html)
 
 def render(cves, path):
@@ -62,7 +65,7 @@ def render(cves, path):
 def run(target, path):
     f = os.path.join(path, "cve_summary.json")
     if not os.path.exists(f):
-        render({}, path)  # fallback leeren Report generieren
+        render({}, path)
         return
     cve = json.load(open(f))
     render(cve, path)
