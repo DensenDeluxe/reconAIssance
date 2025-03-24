@@ -61,7 +61,9 @@ def render(cves, path):
 
 def run(target, path):
     f = os.path.join(path, "cve_summary.json")
-    if not os.path.exists(f): return
+    if not os.path.exists(f):
+        render({}, path)  # fallback leeren Report generieren
+        return
     cve = json.load(open(f))
     render(cve, path)
 

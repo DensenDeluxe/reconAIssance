@@ -41,7 +41,9 @@ def run(target, run_path):
         return
     ip = extract_ip(log_file)
     if not ip:
+        print("[!] No IP found in post-exploitation log.")
         return
+    print(f"[→] Lateral scan from {ip} ...")
     run_lateral_scan(ip, run_path)
 
 if __name__ == "__main__":

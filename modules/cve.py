@@ -13,6 +13,12 @@ def extract_services(text):
         services.append("openssh")
     if "nginx" in text.lower():
         services.append("nginx")
+    if "apache" in text.lower():
+        services.append("apache")
+    if "httpd" in text.lower():
+        services.append("httpd")
+    if "ssl" in text.lower():
+        services.append("openssl")
     return list(set(services))
 
 def query_osv(package_name):

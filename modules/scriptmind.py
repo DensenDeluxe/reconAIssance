@@ -117,7 +117,6 @@ def extract_cves_from_superscript(run_path, target):
     content = Path(path).read_text()
 
     regex_hits = list(set(re.findall(r"(CVE-\d{4}-\d{4,7})", content)))
-
     prompt = f"""Analyze this userscript against https://{target}.
 Which known CVEs might relate to this behavior?
 Return a JSON list of CVE IDs.
@@ -250,3 +249,4 @@ def webexfil_trigger(run_path, target):
     with open(os.path.join(run_path, name), "w") as f:
         f.write(code)
     print(f"[+] WebExfil script saved: {name}")
+
