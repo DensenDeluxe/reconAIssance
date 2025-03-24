@@ -32,8 +32,7 @@ def ssh_success(run_path):
 
 def export_zip(target, run_path):
     try:
-        safe_target = re.sub(r'[^a-zA-Z0-9_.-]', '_', target)
-        name = f"ReconAIssance_{safe_target}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
+        name = f"ReconAIssance_{target}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
         zip_path = os.path.join(get_desktop(), name)
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
             for root, _, files in os.walk(run_path):
@@ -41,13 +40,13 @@ def export_zip(target, run_path):
                     full_path = os.path.join(root, file)
                     rel_path = os.path.relpath(full_path, run_path)
                     zipf.write(full_path, arcname=rel_path)
-        os.chmod(zip_path, 0o644)  # ✅ Fix: Weltlesbar machen
         print(f"[✅] Exported to desktop: {zip_path}")
+        os.chmod(zip_path, 0o644)  # Ensure readable ZIP for external tools
     except Exception as e:
         print(f"[❌] ZIP export failed: {e}")
 
 def parse_targets(raw):
-    parts = re.split(r"[,\\s]+", raw.strip())
+    parts = re.split(r"[,\s]+", raw.strip())
     return list(set([p for p in parts if p]))
 
 def check_superscript_trigger(run_path):
@@ -67,16 +66,16 @@ ascii_banner = r"""
 | $$      | $$_____/| $$      | $$  | $$| $$  | $$         
 | $$      |  $$$$$$$|  $$$$$$$|  $$$$$$/| $$  | $$         
 |__/       \_______/ \_______/ \______/ |__/  |__/         
-
+                                                           
   /$$$$$$  /$$$$$$                                         
  /$$__  $$|_  $$_/                                         
-| $$  \ $$  | $$                                           
-| $$$$$$$$  | $$                                           
-| $$__  $$  | $$                                           
-| $$  | $$  | $$                                           
+| $$  \ $$  | $$                                            
+| $$$$$$$$  | $$                                            
+| $$__  $$  | $$                                            
+| $$  | $$  | $$                                            
 | $$  | $$ /$$$$$$                                         
 |__/  |__/|______/                                         
-
+                                                           
   /$$$$$$$ /$$$$$$$  /$$$$$$  /$$$$$$$   /$$$$$$$  /$$$$$$ 
  /$$_____//$$_____/ |____  $$| $$__  $$ /$$_____/ /$$__  $$
 |  $$$$$$|  $$$$$$   /$$$$$$$| $$  \ $$| $$      | $$$$$$$$
