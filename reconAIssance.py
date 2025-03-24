@@ -108,12 +108,12 @@ if not targets:
 
 modules = [
     "modules/recon.py",
+    "tools/shodan_lookup.py",          # ✅ NEU: Shodan Intelligence
     "modules/scriptmind.py",
     "tools/scriptmind_chart.py",
     "modules/recon_subdomains.py",
-    "tools/shodan_lookup.py",
     "modules/cve.py",
-    "tools/dsa_resolver.py", 
+    "tools/dsa_resolver.py",
     "tools/cve2exploit_map.py",
     "modules/exploit.py",
     "modules/sshchain.py",
