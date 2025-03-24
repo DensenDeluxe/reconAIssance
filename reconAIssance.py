@@ -32,7 +32,8 @@ def ssh_success(run_path):
 
 def export_zip(target, run_path):
     try:
-        name = f"ReconAIssance_{target}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
+        safe_target = re.sub(r'[^a-zA-Z0-9_.-]', '_', target)
+        name = f"ReconAIssance_{safe_target}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
         zip_path = os.path.join(get_desktop(), name)
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
             for root, _, files in os.walk(run_path):
@@ -45,7 +46,7 @@ def export_zip(target, run_path):
         print(f"[❌] ZIP export failed: {e}")
 
 def parse_targets(raw):
-    parts = re.split(r"[,\s]+", raw.strip())
+    parts = re.split(r"[,\\s]+", raw.strip())
     return list(set([p for p in parts if p]))
 
 def check_superscript_trigger(run_path):
@@ -65,16 +66,16 @@ ascii_banner = r"""
 | $$      | $$_____/| $$      | $$  | $$| $$  | $$         
 | $$      |  $$$$$$$|  $$$$$$$|  $$$$$$/| $$  | $$         
 |__/       \_______/ \_______/ \______/ |__/  |__/         
-                                                           
+
   /$$$$$$  /$$$$$$                                         
  /$$__  $$|_  $$_/                                         
-| $$  \ $$  | $$                                            
-| $$$$$$$$  | $$                                            
-| $$__  $$  | $$                                            
-| $$  | $$  | $$                                            
+| $$  \ $$  | $$                                           
+| $$$$$$$$  | $$                                           
+| $$__  $$  | $$                                           
+| $$  | $$  | $$                                           
 | $$  | $$ /$$$$$$                                         
 |__/  |__/|______/                                         
-                                                           
+
   /$$$$$$$ /$$$$$$$  /$$$$$$  /$$$$$$$   /$$$$$$$  /$$$$$$ 
  /$$_____//$$_____/ |____  $$| $$__  $$ /$$_____/ /$$__  $$
 |  $$$$$$|  $$$$$$   /$$$$$$$| $$  \ $$| $$      | $$$$$$$$
