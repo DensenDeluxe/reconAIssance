@@ -16,7 +16,7 @@ def get_desktop():
     return os.path.join(Path.home(), "Desktop")
 
 def run_module(module_path):
-    print(f"[📦] Running: {{module_path}}")
+    print(f"[📦] Running: {module_path}")
     subprocess.run(["python3", module_path], check=True)
 
 def session_exists(run_path):
@@ -32,7 +32,7 @@ def ssh_success(run_path):
 
 def export_zip(target, run_path):
     try:
-        name = f"ReconAIssance_{{target}}_{{datetime.now().strftime('%Y%m%d_%H%M%S')}}.zip"
+        name = f"ReconAIssance_{target}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
         zip_path = os.path.join(get_desktop(), name)
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
             for root, _, files in os.walk(run_path):
@@ -40,12 +40,12 @@ def export_zip(target, run_path):
                     full_path = os.path.join(root, file)
                     rel_path = os.path.relpath(full_path, run_path)
                     zipf.write(full_path, arcname=rel_path)
-        print(f"[✅] Exported to desktop: {{zip_path}}")
+        print(f"[✅] Exported to desktop: {zip_path}")
     except Exception as e:
-        print(f"[❌] ZIP export failed: {{e}}")
+        print(f"[❌] ZIP export failed: {e}")
 
 def parse_targets(raw):
-    parts = re.split(r"[,\s]+", raw.strip())
+    parts = re.split(r"[,\\s]+", raw.strip())
     return list(set([p for p in parts if p]))
 
 def check_superscript_trigger(run_path):
@@ -66,8 +66,7 @@ ascii_banner = r"""
 | $$      | $$_____/| $$      | $$  | $$| $$  | $$         
 | $$      |  $$$$$$$|  $$$$$$$|  $$$$$$/| $$  | $$         
 |__/       \_______/ \_______/ \______/ |__/  |__/         
-                                                                                                                     
-                                                           
+
   /$$$$$$  /$$$$$$                                         
  /$$__  $$|_  $$_/                                         
 | $$  \ $$  | $$                                           
@@ -76,15 +75,13 @@ ascii_banner = r"""
 | $$  | $$  | $$                                           
 | $$  | $$ /$$$$$$                                         
 |__/  |__/|______/                                         
-                                                                                                                     
-                                                           
+
   /$$$$$$$ /$$$$$$$  /$$$$$$  /$$$$$$$   /$$$$$$$  /$$$$$$ 
  /$$_____//$$_____/ |____  $$| $$__  $$ /$$_____/ /$$__  $$
 |  $$$$$$|  $$$$$$   /$$$$$$$| $$  \ $$| $$      | $$$$$$$$
  \____  $$\____  $$ /$$__  $$| $$  | $$| $$      | $$_____/
  /$$$$$$$//$$$$$$$/|  $$$$$$$| $$  | $$|  $$$$$$$|  $$$$$$$
 |_______/|_______/  \_______/|__/  |__/ \_______/ \_______/
-
 """
 
 print(ascii_banner)
@@ -108,8 +105,10 @@ if not targets:
 modules = [
     "modules/recon.py",
     "modules/scriptmind.py",
+    "tools/scriptmind_chart.py",
     "modules/recon_subdomains.py",
     "modules/cve.py",
+    "tools/cve2exploit_map.py",
     "modules/exploit.py",
     "modules/sshchain.py",
     "modules/post.py",
@@ -118,8 +117,8 @@ modules = [
 ]
 
 for target in targets:
-    print(f"\n🚀 Starting ReconAIssance for: {{target}}")
-    run_path = os.path.join("loot", target, f"run{{datetime.now().strftime('%Y%m%d%H%M%S')}}")
+    print(f"\n🚀 Starting ReconAIssance for: {target}")
+    run_path = os.path.join("loot", target, f"run{datetime.now().strftime('%Y%m%d%H%M%S')}")
     os.makedirs(run_path, exist_ok=True)
     os.environ["RECON_KI_TARGET"] = target
     os.environ["RECON_KI_RUN_PATH"] = run_path
@@ -130,7 +129,7 @@ for target in targets:
         try:
             run_module(m)
         except subprocess.CalledProcessError:
-            print(f"[❌] Failed: {{m}}")
+            print(f"[❌] Failed: {m}")
             break
 
     check_superscript_trigger(run_path)
