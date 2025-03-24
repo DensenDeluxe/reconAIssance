@@ -32,7 +32,8 @@ def ssh_success(run_path):
 
 def export_zip(target, run_path):
     try:
-        name = f"ReconAIssance_{target}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
+        safe_target = re.sub(r'[^a-zA-Z0-9_.-]', '_', target)
+        name = f"ReconAIssance_{safe_target}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
         zip_path = os.path.join(get_desktop(), name)
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
             for root, _, files in os.walk(run_path):
@@ -40,8 +41,8 @@ def export_zip(target, run_path):
                     full_path = os.path.join(root, file)
                     rel_path = os.path.relpath(full_path, run_path)
                     zipf.write(full_path, arcname=rel_path)
+        os.chmod(zip_path, 0o644)
         print(f"[✅] Exported to desktop: {zip_path}")
-        os.chmod(zip_path, 0o644)  # Ensure readable ZIP for external tools
     except Exception as e:
         print(f"[❌] ZIP export failed: {e}")
 
@@ -143,5 +144,11 @@ for target in targets:
         except: pass
 
     export_zip(target, run_path)
+
+    try:
+        from tools.pdf_report import generate_pdf_report
+        generate_pdf_report(target, run_path)
+    except Exception as e:
+        print(f"[❌] PDF generation failed: {e}")
 
 print("\n✅ All targets processed.")
