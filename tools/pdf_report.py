@@ -9,48 +9,48 @@ from pathlib import Path
 sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), "tools")))
 from llm_wrapper import use_llm
 
-TEMPLATE = """
+TEMPLATE = f"""
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>ReconAIssance Report</title>
   <style>
-    body { background-color: #111; color: #ddd; font-family: 'Courier New', monospace; padding: 2em; }
-    h1, h2, h3 { color: #4caf50; border-bottom: 1px solid #444; }
-    table { width: 100%; border-collapse: collapse; margin: 1em 0; }
-    th, td { border: 1px solid #555; padding: 0.5em; }
-    th { background-color: #222; color: #fff; }
-    td.critical { background-color: #b71c1c; color: #fff; font-weight: bold; }
-    td.high { background-color: #f57c00; color: #fff; }
-    td.medium { background-color: #fbc02d; color: #000; }
-    td.low { background-color: #388e3c; color: #fff; }
-    pre { white-space: pre-wrap; word-wrap: break-word; }
-    footer { text-align: center; margin-top: 4em; font-size: 0.8em; color: #888; }
+    body {{ background-color: #111; color: #ddd; font-family: 'Courier New', monospace; padding: 2em; }}
+    h1, h2, h3 {{ color: #4caf50; border-bottom: 1px solid #444; }}
+    table {{ width: 100%; border-collapse: collapse; margin: 1em 0; }}
+    th, td {{ border: 1px solid #555; padding: 0.5em; }}
+    th {{ background-color: #222; color: #fff; }}
+    td.critical {{ background-color: #b71c1c; color: #fff; font-weight: bold; }}
+    td.high {{ background-color: #f57c00; color: #fff; }}
+    td.medium {{ background-color: #fbc02d; color: #000; }}
+    td.low {{ background-color: #388e3c; color: #fff; }}
+    pre {{ white-space: pre-wrap; word-wrap: break-word; }}
+    footer {{ text-align: center; margin-top: 4em; font-size: 0.8em; color: #888; }}
   </style>
 </head>
 <body>
   <h1>ReconAIssance Intelligence & Exploitation Summary</h1>
-  <p><b>Target:</b> {target}</p>
-  <p><b>Run Date:</b> {date}</p>
+  <p><b>Target:</b> {{target}}</p>
+  <p><b>Run Date:</b> {{date}}</p>
 
   <h2>Executive Summary</h2>
-  <p>{summary}</p>
+  <p>{{summary}}</p>
 
   <h2>Discovered CVEs</h2>
-  {cve_table}
+  {{cve_table}}
 
   <h2>Exploit Results</h2>
-  {exploit_table}
+  {{exploit_table}}
 
   <h2>Recon & OSINT</h2>
-  {recon_data}
+  {{recon_data}}
 
   <h2>Shodan Exposure</h2>
-  {shodan_data}
+  {{shodan_data}}
 
   <h2>Post-Exploitation Findings</h2>
-  {loot_data}
+  {{loot_data}}
 
   <footer>CONFIDENTIAL | Authorized Personnel Only</footer>
 </body>
@@ -68,7 +68,8 @@ def classify_cvss(score):
         return "low"
 
 def render_cve_table(cves):
-    if not cves: return "<p>No CVEs detected.</p>"
+    if not cves:
+        return "<p>No CVEs detected.</p>"
     rows = "".join(
         f"<tr><td>{cve}</td><td class='{classify_cvss(data.get('score', ''))}'>{data.get('score', '')}</td>"
         f"<td>{data.get('severity', '')}</td><td>{data.get('llm_analysis', '')[:200]}</td></tr>"
@@ -77,7 +78,8 @@ def render_cve_table(cves):
     return f"<table><thead><tr><th>ID</th><th>Score</th><th>Severity</th><th>AI Summary</th></tr></thead><tbody>{rows}</tbody></table>"
 
 def render_exploit_table(results):
-    if not results: return "<p>No exploits triggered.</p>"
+    if not results:
+        return "<p>No exploits triggered.</p>"
     rows = "".join(
         f"<tr><td>{m}</td><td>{'✅' if m in results.get('modules_valid', []) else '❌'}</td></tr>"
         for m in results.get("modules_checked", [])
@@ -119,6 +121,7 @@ def generate_pdf_report(target, run_path):
     exploits = json.load(open(exp_file)) if os.path.exists(exp_file) else {}
 
     summary_prompt = f"""Provide a concise high-level summary for target {target} with {len(cves)} CVEs discovered.
+
 ONLY RETURN VALID JSON. Example:
 {{"summary": "Concise summary text..."}}
 """
@@ -132,7 +135,7 @@ ONLY RETURN VALID JSON. Example:
 
     html = TEMPLATE.format(
         target=target,
-        date=datetime.now(),
+        date=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         summary=summary,
         cve_table=render_cve_table(cves),
         exploit_table=render_exploit_table(exploits),
