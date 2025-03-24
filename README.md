@@ -89,7 +89,7 @@ reconAIssance/
 ## Installation
 
 ```bash
-git clone https://github.com/YOURNAME/reconAIssance.git
+git clone https://github.com/DensenDeluxe/reconAIssance.git
 cd reconAIssance
 chmod +x install.sh
 ./install.sh
