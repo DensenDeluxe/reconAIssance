@@ -50,7 +50,7 @@ def export_zip(target, run_path):
         print(f"[❌] ZIP export failed: {e}")
 
 def parse_targets(raw):
-    parts = re.split(r"[,\s]+", raw.strip())
+    parts = re.split(r"[,\\s]+", raw.strip())
     return list(set([p for p in parts if p]))
 
 def check_superscript_trigger(run_path):
@@ -70,7 +70,7 @@ ascii_banner = r"""
 | $$      | $$_____/| $$      | $$  | $$| $$  | $$         
 | $$      |  $$$$$$$|  $$$$$$$|  $$$$$$/| $$  | $$         
 |__/       \_______/ \_______/ \______/ |__/  |__/         
-                                                           
+
   /$$$$$$  /$$$$$$                                         
  /$$__  $$|_  $$_/                                         
 | $$  \ $$  | $$                                            
@@ -79,7 +79,7 @@ ascii_banner = r"""
 | $$  | $$  | $$                                            
 | $$  | $$ /$$$$$$                                         
 |__/  |__/|______/                                         
-                                                           
+
   /$$$$$$$ /$$$$$$$  /$$$$$$  /$$$$$$$   /$$$$$$$  /$$$$$$ 
  /$$_____//$$_____/ |____  $$| $$__  $$ /$$_____/ /$$__  $$
 |  $$$$$$|  $$$$$$   /$$$$$$$| $$  \ $$| $$      | $$$$$$$$
@@ -112,7 +112,7 @@ modules = [
     "tools/scriptmind_chart.py",
     "modules/recon_subdomains.py",
     "modules/cve.py",
-    "tools/dsa_resolver.py",
+    "tools/dsa_resolver.py",          # ✅ NEU: KI-Auswertung von DSA-Advisories
     "tools/cve2exploit_map.py",
     "modules/exploit.py",
     "modules/sshchain.py",
