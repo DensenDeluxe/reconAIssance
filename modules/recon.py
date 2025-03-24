@@ -45,7 +45,8 @@ exit""")
                 takeover.append(sub)
         except:
             continue
-    with open(os.path.join(run_path, "takeover_candidates.txt"), "w") as f:
+    takeover_path = os.path.join(run_path, "takeover_candidates.txt")
+    with open(takeover_path, "w") as f:
         for s in takeover:
             f.write(s + "\n")
 
@@ -62,14 +63,28 @@ exit""")
     with open(os.path.join(run_path, "leaks_github.json"), "w") as f:
         json.dump(leaks, f, indent=2)
 
-    prompt = f"List 5 likely people or roles that might currently work for or administer {target}."
+    prompt = f"""List 5 likely roles or staff members at {target}.
+
+ONLY RETURN VALID JSON. Example:
+{{"staff":["Administrator","Developer","Security Analyst","Support","Manager"]}}
+"""
+
     response = use_llm("staff_discovery", prompt)
-    with open(os.path.join(run_path, "staff.txt"), "w") as f:
-        f.write(response)
+    try:
+        staff = json.loads(response.strip().split("\n")[-1])
+    except json.JSONDecodeError:
+        staff = {"staff": [], "error": f"LLM parse error: {response[:200]}"}
+
+    staff_path = os.path.join(run_path, "staff.json")
+    with open(staff_path, "w") as f:
+        json.dump(staff, f, indent=2)
+
+    print(f"[✓] Staff analysis saved to {staff_path}")
 
 if __name__ == "__main__":
     t = os.getenv("RECON_KI_TARGET")
     p = os.getenv("RECON_KI_RUN_PATH")
     if not t or not p:
+        print("[!] Missing environment variables.")
         exit(1)
     run(t, p)

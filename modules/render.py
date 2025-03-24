@@ -4,7 +4,6 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), "tools")))
 import json
 from datetime import datetime
 
-
 def scriptmind_section(path):
     html = []
     s = next((f for f in os.listdir(path) if f.startswith("superscript_") and f.endswith(".user.js")), None)
@@ -37,7 +36,6 @@ def scriptmind_section(path):
 
     return "".join(html)
 
-
 def render(cves, path):
     html = [f"""
 <html>
@@ -46,9 +44,9 @@ def render(cves, path):
   <title>ReconAIssance Report</title>
   <link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css' rel='stylesheet'>
   <style>
-    body { background-color: #f8f9fa; }
-    table { background-color: #ffffff; }
-    th { background-color: #343a40; color: #ffffff; }
+    body {{ background-color: #f8f9fa; }}
+    table {{ background-color: #ffffff; }}
+    th {{ background-color: #343a40; color: #ffffff; }}
   </style>
 </head>
 <body>
@@ -92,14 +90,12 @@ def render(cves, path):
     with open(os.path.join(path, "cve_report.html"), "w") as f:
         f.write("".join(html))
 
-
 def run(target, path):
     f = os.path.join(path, "cve_summary.json")
     if not os.path.exists(f):
         return
     cve = json.load(open(f))
     render(cve, path)
-
 
 if __name__ == "__main__":
     t = os.getenv("RECON_KI_TARGET")

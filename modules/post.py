@@ -1,6 +1,7 @@
 import os
 import sys
 import subprocess
+import json
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), "tools")))
 from llm_wrapper import use_llm
@@ -40,14 +41,36 @@ def run_post_rc(rc_path, run_path):
 def run(target, run_path):
     sid_path = os.path.join(run_path, "session_ids.txt")
     if not os.path.exists(sid_path):
+        print("[!] No session_ids.txt file found.")
         return
+
     sid = open(sid_path).read().strip().split(",")[0]
     rc = build_post_rc(sid, run_path)
     output = run_post_rc(rc, run_path)
-    prompt = f"Analyze this shell output for privilege level, users, system info:\n\n{output[:4000]}"
+
+    prompt = f"""Analyze this shell output for privilege level, users, system info:
+
+{output[:4000]}
+
+ONLY RETURN VALID JSON. Example:
+{{"privilege":"root","users":["user1","user2"],"system_info":"Linux version 5.x..."}}
+"""
+
     response = use_llm("post_analysis", prompt)
-    with open(os.path.join(run_path, "ai_loot_summary.txt"), "w") as f:
-        f.write(response)
+    try:
+        analysis = json.loads(response.strip().split("\n")[-1])
+    except json.JSONDecodeError:
+        analysis = {
+            "privilege": "unknown",
+            "users": [],
+            "system_info": f"LLM parse error: {response[:200]}"
+        }
+
+    summary_path = os.path.join(run_path, "ai_loot_summary.json")
+    with open(summary_path, "w") as f:
+        json.dump(analysis, f, indent=2)
+
+    print(f"[✓] Post-exploitation analysis saved to {summary_path}")
 
 if __name__ == "__main__":
     t = os.getenv("RECON_KI_TARGET")

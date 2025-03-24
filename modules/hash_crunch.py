@@ -1,10 +1,13 @@
 import os
+import sys
 import json
 import subprocess
 from pathlib import Path
+from datetime import datetime
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), "tools")))
 from llm_wrapper import use_llm
 from hash import find_sources, extract, guess_mode
-from datetime import datetime
 
 def load_usernames(run_path):
     brute_file = os.path.join(run_path, "ssh_brute_result.json")
@@ -22,27 +25,22 @@ Given the following:
 - Target: {target}
 - Usernames: {', '.join(usernames)}
 - Hash sample: {hash_sample}
+
 Suggest optimized crunch arguments.
 
-Return JSON:
-{{
-  "min_length": ..., 
-  "max_length": ..., 
-  "charset": "...", 
-  "notes": "...",
-  "example_pw": ["..."]
-}}
+ONLY RETURN VALID JSON. Example:
+{{"min_length":8,"max_length":12,"charset":"abcdefghijklmnopqrstuvwxyz0123456789","notes":"Optimized for typical web-apps"}}
 """
+
     result = use_llm("crunch_args", prompt)
     try:
-        return json.loads(result.split("\n")[-1])
-    except:
+        return json.loads(result.strip().split("\n")[-1])
+    except json.JSONDecodeError:
         return {
-            "min_length": 6,
+            "min_length": 8,
             "max_length": 12,
             "charset": "abcdefghijklmnopqrstuvwxyz0123456789",
-            "notes": "Fallback default",
-            "example_pw": []
+            "notes": "LLM parse error: fallback to default"
         }
 
 def build_crunch_pipe(run_path, args, mode):
@@ -73,7 +71,8 @@ def build_crunch_pipe(run_path, args, mode):
 
 def fallback_pw_list(run_path, mode):
     pw_dir = Path("PW")
-    if not pw_dir.exists(): return
+    if not pw_dir.exists():
+        return
     hashes = os.path.join(run_path, "hashes.txt")
     log = os.path.join(run_path, "hashcat_fallback.log")
     for pwfile in pw_dir.glob("*.txt"):

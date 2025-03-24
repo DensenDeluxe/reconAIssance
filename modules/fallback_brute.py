@@ -1,7 +1,11 @@
 import os
+import sys
 import json
 import subprocess
 from pathlib import Path
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), "tools")))
+from llm_wrapper import use_llm
 
 LIMIT_USERS = 5000
 LIMIT_PASSWORDS = 10000
