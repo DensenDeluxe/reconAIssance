@@ -45,7 +45,7 @@ def export_zip(target, run_path):
         print(f"[❌] ZIP export failed: {e}")
 
 def parse_targets(raw):
-    parts = re.split(r"[,\\s]+", raw.strip())
+    parts = re.split(r"[,\s]+", raw.strip())
     return list(set([p for p in parts if p]))
 
 def check_superscript_trigger(run_path):
@@ -59,23 +59,22 @@ def check_superscript_trigger(run_path):
     except: pass
 
 ascii_banner = r"""
-                                                           
   /$$$$$$   /$$$$$$   /$$$$$$$  /$$$$$$  /$$$$$$$          
  /$$__  $$ /$$__  $$ /$$_____/ /$$__  $$| $$__  $$         
 | $$  \__/| $$$$$$$$| $$      | $$  \ $$| $$  \ $$         
 | $$      | $$_____/| $$      | $$  | $$| $$  | $$         
 | $$      |  $$$$$$$|  $$$$$$$|  $$$$$$/| $$  | $$         
 |__/       \_______/ \_______/ \______/ |__/  |__/         
-
+                                                           
   /$$$$$$  /$$$$$$                                         
  /$$__  $$|_  $$_/                                         
-| $$  \ $$  | $$                                           
-| $$$$$$$$  | $$                                           
-| $$__  $$  | $$                                           
-| $$  | $$  | $$                                           
+| $$  \ $$  | $$                                            
+| $$$$$$$$  | $$                                            
+| $$__  $$  | $$                                            
+| $$  | $$  | $$                                            
 | $$  | $$ /$$$$$$                                         
 |__/  |__/|______/                                         
-
+                                                           
   /$$$$$$$ /$$$$$$$  /$$$$$$  /$$$$$$$   /$$$$$$$  /$$$$$$ 
  /$$_____//$$_____/ |____  $$| $$__  $$ /$$_____/ /$$__  $$
 |  $$$$$$|  $$$$$$   /$$$$$$$| $$  \ $$| $$      | $$$$$$$$
@@ -85,7 +84,7 @@ ascii_banner = r"""
 """
 
 print(ascii_banner)
-print("🔧 ReconAIssance 3.4 – Multi-Target + Auto Mode\n")
+print("🔧 ReconAIssance – Multi-Target + Full-Auto Mode\n")
 
 print("Choose input mode:")
 print(" [1] Manual input")
@@ -112,7 +111,9 @@ modules = [
     "modules/exploit.py",
     "modules/sshchain.py",
     "modules/post.py",
+    "modules/lateral_scan.py",
     "modules/hash.py",
+    "modules/hash_crunch.py",
     "modules/render.py"
 ]
 
