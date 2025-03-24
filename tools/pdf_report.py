@@ -66,6 +66,9 @@ TEMPLATE = """
   <h2>Recon & OSINT</h2>
   {recon_data}
 
+  <h2>Shodan Exposure</h2>
+  {shodan_data}
+
   <h2>Post-Exploitation Findings</h2>
   {loot_data}
 
@@ -116,6 +119,16 @@ def render_loot(path):
             return f"<pre>{open(f).read()[:4000]}</pre>"
     return "<p>No loot found.</p>"
 
+def render_shodan(path):
+    file = os.path.join(path, "shodan_summary.json")
+    if not os.path.exists(file):
+        return "<p>No Shodan data available.</p>"
+    data = json.load(open(file))
+    html = []
+    for ip, entry in data.items():
+        html.append(f"<h3>{ip}</h3><pre>{entry.get('llm_analysis', 'no analysis')}</pre>")
+    return "".join(html)
+
 def generate_pdf_report(target, run_path):
     cve_file = os.path.join(run_path, "cve_summary.json")
     exp_file = os.path.join(run_path, "exploit_result.json")
@@ -132,6 +145,7 @@ def generate_pdf_report(target, run_path):
         cve_table=render_cve_table(cves),
         exploit_table=render_exploit_table(exploits),
         recon_data=render_recon(run_path),
+        shodan_data=render_shodan(run_path),
         loot_data=render_loot(run_path)
     )
 
