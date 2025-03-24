@@ -128,10 +128,11 @@ Each run generates a folder under `loot/target/run...` and a full ZIP archive on
 
 ## LLM Usage
 
-Place your Hugging Face token in:
+Place your Hugging Face & Github tokens in:
 
 ```
 tools/apitoken.txt
+tools/github_token.txt
 ```
 
 Used for:
