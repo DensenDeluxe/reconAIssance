@@ -111,8 +111,9 @@ modules = [
     "modules/scriptmind.py",
     "tools/scriptmind_chart.py",
     "modules/recon_subdomains.py",
+    "tools/shodan_lookup.py",
     "modules/cve.py",
-    "tools/dsa_resolver.py",          # ✅ NEU: KI-Auswertung von DSA-Advisories
+    "tools/dsa_resolver.py", 
     "tools/cve2exploit_map.py",
     "modules/exploit.py",
     "modules/sshchain.py",
