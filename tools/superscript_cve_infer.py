@@ -12,7 +12,7 @@ def run(target, run_path):
     effect = data.get("effect", "unknown")
     category = data.get("class", "none")
     note = data.get("note", "")
-    
+
     prompt = f"""You are a CVE analyst.
 
 Given this attack classification from a user script executed on https://{target}, infer likely CVEs.

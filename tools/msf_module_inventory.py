@@ -28,7 +28,7 @@ def parse_module(file_path):
             "targets": list(set(targets)),
             "payloads": list(set(payloads))
         }
-    except Exception as e:
+    except Exception:
         return None
 
 def collect_modules():
