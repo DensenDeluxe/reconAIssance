@@ -15,6 +15,9 @@ def get_desktop():
         pass
     return os.path.join(Path.home(), "Desktop")
 
+def safe_name(name):
+    return re.sub(r'[^a-zA-Z0-9_.-]', '_', name)
+
 def run_module(module_path):
     print(f"[📦] Running: {module_path}")
     subprocess.run(["python3", module_path], check=True)
@@ -32,7 +35,7 @@ def ssh_success(run_path):
 
 def export_zip(target, run_path):
     try:
-        safe_target = re.sub(r'[^a-zA-Z0-9_.-]', '_', target)
+        safe_target = safe_name(target)
         name = f"ReconAIssance_{safe_target}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
         zip_path = os.path.join(get_desktop(), name)
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
@@ -121,7 +124,8 @@ modules = [
 
 for target in targets:
     print(f"\n🚀 Starting ReconAIssance for: {target}")
-    run_path = os.path.join("loot", target, f"run{datetime.now().strftime('%Y%m%d%H%M%S')}")
+    safe = safe_name(target)
+    run_path = os.path.join("loot", safe, f"run{datetime.now().strftime('%Y%m%d%H%M%S')}")
     os.makedirs(run_path, exist_ok=True)
     os.environ["RECON_KI_TARGET"] = target
     os.environ["RECON_KI_RUN_PATH"] = run_path
