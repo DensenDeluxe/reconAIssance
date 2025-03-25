@@ -1,60 +1,80 @@
 import os
 import json
+import socket
+from contextlib import closing
+from pathlib import Path
 
-def run(run_path):
-    data = {}
-    class_file = os.path.join(run_path, "superscript_class.json")
-    if not os.path.exists(class_file):
+def port_in_use(port):
+    with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as sock:
+        return sock.connect_ex(('localhost', port)) == 0
+
+def generate_chart(run_path):
+    cls_file = os.path.join(run_path, "superscript_class.json")
+    if not os.path.exists(cls_file):
         print("[!] No classification found.")
         return
 
-    cls = json.load(open(class_file)).get("class", "none")
-    data[cls] = data.get(cls, 0) + 1
+    data = json.load(open(cls_file))
+    effect = data.get("effect", "unknown")
+    category = data.get("class", "none")
+    note = data.get("note", "")
 
-    html = f"""
+    html_content = f"""
     <html>
     <head>
-      <title>Superscript Class Chart</title>
-      <script src='https://cdn.jsdelivr.net/npm/chart.js'></script>
+        <title>ScriptMind Classification Chart</title>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     </head>
-    <body>
-    <div style='width: 600px; margin: 40px auto;'>
-      <h3>Superscript Class Distribution</h3>
-      <canvas id='chart'></canvas>
-    </div>
-    <script>
-      const ctx = document.getElementById('chart');
-      new Chart(ctx, {{
-        type: 'bar',
-        data: {{
-          labels: {list(data.keys())},
-          datasets: [{{
-            label: 'Class count',
-            data: {list(data.values())},
-            backgroundColor: 'rgba(54, 162, 235, 0.7)',
-            borderWidth: 1
-          }}]
-        }},
-        options: {{
-          scales: {{
-            y: {{
-              beginAtZero: true
+    <body style="background-color: #222; color: #eee;">
+        <canvas id="scriptmindChart" width="400" height="400"></canvas>
+        <script>
+        const ctx = document.getElementById('scriptmindChart').getContext('2d');
+        new Chart(ctx, {{
+            type: 'bar',
+            data: {{
+                labels: ['Effect', 'Class'],
+                datasets: [{{
+                    label: 'ScriptMind Analysis',
+                    data: ['{effect}', '{category}'].map(e => e === 'high' ? 3 : e === 'medium' ? 2 : e === 'low' ? 1 : 0),
+                    backgroundColor: ['rgba(75, 192, 192, 0.6)', 'rgba(255, 159, 64, 0.6)'],
+                    borderColor: ['rgba(75, 192, 192, 1)', 'rgba(255, 159, 64, 1)'],
+                    borderWidth: 1
+                }}]
+            }},
+            options: {{
+                scales: {{
+                    y: {{
+                        beginAtZero: true,
+                        ticks: {{
+                            stepSize: 1,
+                            callback: (value) => ['none', 'low', 'medium', 'high'][value]
+                        }}
+                    }}
+                }}
             }}
-          }}
-        }}
-      }});
-    </script>
+        }});
+        </script>
+        <p><b>Note:</b> {note}</p>
     </body>
     </html>
     """
 
-    with open(os.path.join(run_path, "scriptmind_chart.html"), "w") as f:
-        f.write(html)
-    print("[✓] Chart generated: scriptmind_chart.html")
+    chart_path = os.path.join(run_path, "scriptmind_chart.html")
+    with open(chart_path, "w") as f:
+        f.write(html_content)
+
+    print("[✓] Chart generated:", chart_path)
+
+    if not port_in_use(8080):
+        os.chdir(run_path)
+        os.system("python3 -m http.server 8080 &")
+        print("[✓] HTTP Server started on port 8080.")
+    else:
+        print("[⚠️] HTTP Server on port 8080 already running. Skipping.")
 
 if __name__ == "__main__":
-    t = os.getenv("RECON_KI_TARGET")
-    p = os.getenv("RECON_KI_RUN_PATH")
-    if not t or not p:
+    run_path = os.getenv("RECON_KI_RUN_PATH")
+    if not run_path:
+        print("[!] Missing RECON_KI_RUN_PATH environment variable.")
         exit(1)
-    run(p)
+    generate_chart(run_path)
