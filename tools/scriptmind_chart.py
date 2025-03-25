@@ -2,7 +2,6 @@ import os
 import json
 import socket
 from contextlib import closing
-from pathlib import Path
 
 def port_in_use(port):
     with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as sock:

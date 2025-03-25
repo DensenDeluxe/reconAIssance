@@ -15,14 +15,15 @@ def run(target, run_path):
     category = data.get("class", "none")
     note = data.get("note", "")
 
-    prompt = f"""You are a CVE analyst. Given the following attack classification from a userscript executed on https://{target}, infer likely CVEs.
+    prompt = f"""You are a CVE analyst.
+Given the following userscript analysis:
 
 Classification: {category}
 Effect level: {effect}
 Notes: {note}
 
-ONLY RETURN VALID JSON. Example:
-{{"cves": ["CVE-2023-1234", "CVE-2022-5678"]}}
+ONLY RETURN VALID JSON. No explanations or notes. Example:
+{{"cves": ["CVE-2015-1632", "CVE-2023-12345"]}}
 """
 
     result = use_llm("scriptmind_cve_infer", prompt)
@@ -30,8 +31,8 @@ ONLY RETURN VALID JSON. Example:
         matches_json = json.loads(result.strip().split("\n")[-1])
         matches = matches_json.get("cves", [])
     except json.JSONDecodeError:
-        matches = []
         print(f"[!] LLM parse error: {result[:200]}")
+        matches = []
 
     with open(os.path.join(run_path, "superscript_cve_infer.json"), "w") as f:
         json.dump({"inferred_cves": matches}, f, indent=2)
