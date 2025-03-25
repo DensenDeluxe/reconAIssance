@@ -5,6 +5,7 @@ import zipfile
 import re
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import urlparse
 
 def get_desktop():
     try:
@@ -17,6 +18,15 @@ def get_desktop():
 
 def safe_name(name):
     return re.sub(r'[^a-zA-Z0-9_.-]', '_', name)
+
+def normalize_target(address):
+    address = address.strip()
+    if not address.startswith(("http://", "https://")):
+        address = "http://" + address
+    parsed = urlparse(address)
+    hostname = parsed.hostname or address
+    hostname = re.sub(r'^www\.', '', hostname)
+    return hostname.lower()
 
 def run_module(module_path):
     print(f"[📦] Running: {module_path}")
@@ -36,7 +46,7 @@ def ssh_success(run_path):
 def export_zip(target, run_path):
     try:
         safe_target = safe_name(target)
-        name = f"ReconAIssance_{safe_target}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
+        name = f"{safe_target}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
         zip_path = os.path.join(get_desktop(), name)
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
             for root, _, files in os.walk(run_path):
@@ -50,8 +60,8 @@ def export_zip(target, run_path):
         print(f"[❌] ZIP export failed: {e}")
 
 def parse_targets(raw):
-    parts = re.split(r"[,\\s]+", raw.strip())
-    return list(set([p for p in parts if p]))
+    parts = re.split(r"[,\s]+", raw.strip())
+    return list(set(normalize_target(p) for p in parts if p))
 
 def check_superscript_trigger(run_path):
     f = os.path.join(run_path, "superscript_class.json")
@@ -61,7 +71,8 @@ def check_superscript_trigger(run_path):
         if data.get("class") == "exploit" and data.get("effect") in ["high", "medium"]:
             print("[💣] Superscript classified as exploit → launching exploit.py")
             run_module("modules/exploit.py")
-    except: pass
+    except:
+        pass
 
 ascii_banner = r"""
   /$$$$$$   /$$$$$$   /$$$$$$$  /$$$$$$  /$$$$$$$          
@@ -108,7 +119,7 @@ if not targets:
 
 modules = [
     "modules/recon.py",
-    "tools/shodan_lookup.py",          # ✅ NEU: Shodan Intelligence
+    "tools/shodan_lookup.py",
     "modules/scriptmind.py",
     "tools/scriptmind_chart.py",
     "modules/recon_subdomains.py",
@@ -147,7 +158,8 @@ for target in targets:
         print("[⚠️] No session found → launching fallback brute")
         try:
             run_module("modules/fallback_brute.py")
-        except: pass
+        except:
+            pass
 
     export_zip(target, run_path)
 
