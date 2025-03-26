@@ -1,6 +1,19 @@
 import os
 import json
 import re
+import logging
+
+# Logging Setup
+logger = logging.getLogger("reconAIssance")
+logger.setLevel(logging.DEBUG)
+if not logger.hasHandlers():
+    formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
+    fh = logging.FileHandler("recon_log.txt", mode="a")
+    fh.setFormatter(formatter)
+    logger.addHandler(fh)
+    ch = logging.StreamHandler()
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
 
 BASE_DIRS = [
     "/opt/metasploit-framework/embedded/framework/modules",
@@ -28,14 +41,18 @@ def parse_module(file_path):
             "targets": list(set(targets)),
             "payloads": list(set(payloads))
         }
-    except Exception:
+    except Exception as e:
+        logger.warning(f"Failed to parse module: {file_path} — {e}")
         return None
 
 def collect_modules():
+    logger.info("Starting Metasploit module inventory collection...")
     modules = []
     for base in BASE_DIRS:
         if not os.path.exists(base):
+            logger.warning(f"Base path not found: {base}")
             continue
+        logger.debug(f"Scanning directory: {base}")
         for root, _, files in os.walk(base):
             for file in files:
                 if file.endswith(".rb"):
@@ -44,10 +61,14 @@ def collect_modules():
                     if data:
                         modules.append(data)
 
+    logger.info(f"Collected {len(modules)} valid module definitions.")
     os.makedirs("tools", exist_ok=True)
-    with open(OUTFILE, "w") as f:
-        json.dump(modules, f, indent=2)
-    print(f"[✓] Saved {len(modules)} modules to {OUTFILE}")
+    try:
+        with open(OUTFILE, "w") as f:
+            json.dump(modules, f, indent=2)
+        logger.info(f"Saved inventory to {OUTFILE}")
+    except Exception as e:
+        logger.exception("Failed to write Metasploit module inventory.")
 
 if __name__ == "__main__":
     collect_modules()

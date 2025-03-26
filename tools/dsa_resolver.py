@@ -1,70 +1,64 @@
 import os
-import sys
 import json
-from llm_wrapper import use_llm
+import logging
 from datetime import datetime
+from huggingface_hub import InferenceClient
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), "tools")))
+DEFAULT_MODEL = "mistralai/Mistral-7B-Instruct-v0.2"
+LOG_PATH = os.path.join("loot", "llm_model_choices.jsonl")
 
-def resolve_dsa(dsa_id):
-    prompt = f"""You are a CVE and Exploit Analyst.
-Given this Debian Security Advisory (DSA) ID: {dsa_id}, provide:
+# Logging Setup
+logger = logging.getLogger("reconAIssance")
+logger.setLevel(logging.DEBUG)
+if not logger.hasHandlers():
+    formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
+    fh = logging.FileHandler("recon_log.txt", mode="a")
+    fh.setFormatter(formatter)
+    logger.addHandler(fh)
+    ch = logging.StreamHandler()
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
 
-- Short vulnerability summary
-- Related CVEs
-- Likely Metasploit module (if available)
-- Suggested payload type
-- Severity (low, medium, high, critical)
-
-ONLY RETURN VALID JSON. Example:
-{{
-  "summary": "Short summary...",
-  "related_cves": ["CVE-xxxx-xxxx"],
-  "module_hint": "exploit/...",
-  "suggested_payload": "linux/x86/meterpreter_reverse_tcp",
-  "severity": "high"
-}}
-"""
-    result = use_llm("dsa_resolver", prompt)
+def choose_model(task_type, context=None):
+    logger.debug(f"Model selection requested: task={task_type}, context={context}")
     try:
-        data = json.loads(result.strip().split("\n")[-1])
-    except json.JSONDecodeError:
-        data = {
-            "summary": "LLM parse error",
-            "related_cves": [],
-            "module_hint": "",
-            "suggested_payload": "",
-            "severity": "unknown"
-        }
-    return data
+        token = open("tools/apitoken.txt").read().strip()
+    except Exception as e:
+        logger.error("API token for model selection missing.")
+        return {"model": DEFAULT_MODEL, "reason": "token missing – fallback to default"}
 
-def run(target, run_path):
-    dsa_file = os.path.join(run_path, "cve_summary.json")
-    if not os.path.exists(dsa_file):
-        print("[!] No cve_summary.json file found.")
-        return
+    prompt = f"""You are a model routing assistant.
+Your job is to select the best Hugging Face model for a given task.
 
-    raw = json.load(open(dsa_file))
-    dsa_ids = [c for c in raw if c.startswith("DSA-")]
-    if not dsa_ids:
-        print("[!] No DSA identifiers found in cve_summary.json.")
-        return
+Task: {task_type}
+Context: {context or "none"}
 
-    results = {}
-    for dsa in dsa_ids:
-        print(f"[🧠] Resolving DSA: {dsa}")
-        results[dsa] = resolve_dsa(dsa)
+Return JSON:
+{{ "model": "model/repo", "reason": "..." }}"""
 
-    out = os.path.join(run_path, "dsa_analysis.json")
-    with open(out, "w") as f:
-        json.dump(results, f, indent=2)
+    try:
+        client = InferenceClient(DEFAULT_MODEL, token=token)
+        result = client.text_generation(prompt, max_new_tokens=300).strip()
+        match = json.loads(result.split("\n")[-1])
+        logger.info(f"Model selected: {match['model']} (reason: {match['reason']})")
+    except Exception as e:
+        logger.warning(f"Model selection failed. Fallback to default model.")
+        match = {"model": DEFAULT_MODEL, "reason": "fallback to default"}
 
-    print(f"[✓] DSA analysis saved to {out}")
+    log_entry = {
+        "time": str(datetime.now()),
+        "task": task_type,
+        "context": context,
+        "model": match["model"],
+        "reason": match["reason"]
+    }
 
-if __name__ == "__main__":
-    t = os.getenv("RECON_KI_TARGET")
-    p = os.getenv("RECON_KI_RUN_PATH")
-    if not t or not p:
-        print("[!] Missing environment variables.")
-        exit(1)
-    run(t, p)
+    try:
+        os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
+        with open(LOG_PATH, "a") as f:
+            f.write(json.dumps(log_entry) + "\n")
+        logger.debug("Model choice logged to JSONL.")
+    except Exception as e:
+        logger.exception("Failed to write model choice to JSONL.")
+
+    return match
