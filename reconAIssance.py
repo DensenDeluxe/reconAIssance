@@ -1,172 +1,214 @@
-import subprocess
 import os
+import sys
 import json
-import zipfile
-import re
+import logging
+import hashlib
+import requests
 from datetime import datetime
 from pathlib import Path
-from urllib.parse import urlparse
 
-def get_desktop():
-    try:
-        d = os.popen("xdg-user-dir DESKTOP").read().strip()
-        if os.path.isdir(d):
-            return d
-    except:
-        pass
-    return os.path.join(Path.home(), "Desktop")
+sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), "tools")))
+from llm_wrapper import use_llm
+from load_api_keys import load_keys
 
-def safe_name(name):
-    return re.sub(r'[^a-zA-Z0-9_.-]', '_', name)
+logger = logging.getLogger("reconAIssance")
+logger.setLevel(logging.DEBUG)
+if not logger.hasHandlers():
+    fh = logging.FileHandler("recon_log.txt", mode="a")
+    fh.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+    logger.addHandler(fh)
+    ch = logging.StreamHandler()
+    ch.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+    logger.addHandler(ch)
 
-def normalize_target(address):
-    address = address.strip()
-    if not address.startswith(("http://", "https://")):
-        address = "http://" + address
-    parsed = urlparse(address)
-    hostname = parsed.hostname or address
-    hostname = re.sub(r'^www\.', '', hostname)
-    return hostname.lower()
+API_SEARCH = "https://api.shodan.io/shodan/host/search"
+API_HOST = "https://api.shodan.io/shodan/host/"
+QUERY_CACHE = Path("loot/shodan_query_cache.json")
+DB_PATH = Path("loot/shodan_db.jsonl")
 
-def run_module(module_path):
-    print(f"[📦] Running: {module_path}")
-    subprocess.run(["python3", module_path], check=True)
+def hash_query(q):
+    return hashlib.sha1(q.encode()).hexdigest()
 
-def session_exists(run_path):
-    sid_file = os.path.join(run_path, "session_ids.txt")
-    return os.path.exists(sid_file) and Path(sid_file).read_text().strip()
+def load_query_cache():
+    if QUERY_CACHE.exists():
+        return json.load(open(QUERY_CACHE))
+    return {}
 
-def ssh_success(run_path):
-    path = os.path.join(run_path, "ssh_brute_result.json")
-    if not os.path.exists(path):
+def save_query_cache(cache):
+    with open(QUERY_CACHE, "w") as f:
+        json.dump(cache, f, indent=2)
+
+def already_in_db(ip):
+    if not DB_PATH.exists():
         return False
-    with open(path) as f:
-        return any(r.get("success") for r in json.load(f))
+    with open(DB_PATH) as f:
+        for line in f:
+            if f"\"ip_str\": \"{ip}\"" in line:
+                return True
+    return False
 
-def export_zip(target, run_path):
+def append_to_db(entry):
+    with open(DB_PATH, "a") as f:
+        f.write(json.dumps(entry) + "\n")
+
+def detect_language(text):
+    prompt = f"""Detect the language of this text. Return ISO code only.
+Text: \"{text}\"
+Respond ONLY with: en, de, fr, es"""
     try:
-        safe_target = safe_name(target)
-        name = f"{safe_target}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
-        zip_path = os.path.join(get_desktop(), name)
-        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
-            for root, _, files in os.walk(run_path):
-                for file in files:
-                    full_path = os.path.join(root, file)
-                    rel_path = os.path.relpath(full_path, run_path)
-                    zipf.write(full_path, arcname=rel_path)
-        os.chmod(zip_path, 0o644)
-        print(f"[✅] Exported to desktop: {zip_path}")
+        result = use_llm("lang_detect", prompt).strip().lower()[:2]
+        if result not in ["en", "de", "fr", "es"]:
+            logger.warning(f"LLM returned unsupported language: {result}")
+            return "en"
+        return result
     except Exception as e:
-        print(f"[❌] ZIP export failed: {e}")
+        logger.warning(f"Language detection failed: {e}")
+        return "en"
 
-def parse_targets(raw):
-    parts = re.split(r"[,\s]+", raw.strip())
-    return list(set(normalize_target(p) for p in parts if p))
+def query_shodan(user_input):
+    prompt = f"""You are a cybersecurity assistant.
+Given a reconnaissance objective, generate a valid Shodan API query using real filters like: port:, org:, city:, title:, product:, os:, etc.
 
-def check_superscript_trigger(run_path):
-    f = os.path.join(run_path, "superscript_class.json")
-    if not os.path.exists(f): return
-    try:
-        data = json.load(open(f))
-        if data.get("class") == "exploit" and data.get("effect") in ["high", "medium"]:
-            print("[💣] Superscript classified as exploit → launching exploit.py")
-            run_module("modules/exploit.py")
-    except:
-        pass
+❗ Do NOT return vague phrases like \"router in France\".
+Return a valid Shodan query string that will return results via the API.
 
-ascii_banner = r"""
-  /$$$$$$   /$$$$$$   /$$$$$$$  /$$$$$$  /$$$$$$$          
- /$$__  $$ /$$__  $$ /$$_____/ /$$__  $$| $$__  $$         
-| $$  \__/| $$$$$$$$| $$      | $$  \ $$| $$  \ $$         
-| $$      | $$_____/| $$      | $$  | $$| $$  | $$         
-| $$      |  $$$$$$$|  $$$$$$$|  $$$$$$/| $$  | $$         
-|__/       \_______/ \_______/ \______/ |__/  |__/         
+Respond ONLY with valid JSON. Format:
+{{"query": "...", "description": "..."}}
 
-  /$$$$$$  /$$$$$$                                         
- /$$__  $$|_  $$_/                                         
-| $$  \ $$  | $$                                            
-| $$$$$$$$  | $$                                            
-| $$__  $$  | $$                                            
-| $$  | $$  | $$                                            
-| $$  | $$ /$$$$$$                                         
-|__/  |__/|______/                                         
-
-  /$$$$$$$ /$$$$$$$  /$$$$$$  /$$$$$$$   /$$$$$$$  /$$$$$$ 
- /$$_____//$$_____/ |____  $$| $$__  $$ /$$_____/ /$$__  $$
-|  $$$$$$|  $$$$$$   /$$$$$$$| $$  \ $$| $$      | $$$$$$$$
- \____  $$\____  $$ /$$__  $$| $$  | $$| $$      | $$_____/
- /$$$$$$$//$$$$$$$/|  $$$$$$$| $$  | $$|  $$$$$$$|  $$$$$$$
-|_______/|_______/  \_______/|__/  |__/ \_______/ \_______/
+Input: {user_input}
 """
 
-print(ascii_banner)
-print("🔧 ReconAIssance – Multi-Target + Full-Auto Mode\n")
-
-print("Choose input mode:")
-print(" [1] Manual input")
-print(" [2] From input.txt")
-mode = input("Selection: ").strip()
-
-if mode == "2" and os.path.exists("input.txt"):
-    raw_input = Path("input.txt").read_text()
-else:
-    raw_input = input("Enter one or more targets: ")
-
-targets = parse_targets(raw_input)
-if not targets:
-    print("❌ No valid targets.")
-    exit(1)
-
-modules = [
-    "modules/recon.py",
-    "tools/shodan_lookup.py",
-    "modules/scriptmind.py",
-    "tools/scriptmind_chart.py",
-    "modules/recon_subdomains.py",
-    "modules/cve.py",
-    "tools/dsa_resolver.py",
-    "tools/cve2exploit_map.py",
-    "modules/exploit.py",
-    "modules/sshchain.py",
-    "modules/post.py",
-    "modules/lateral_scan.py",
-    "modules/hash.py",
-    "modules/hash_crunch.py",
-    "modules/render.py"
-]
-
-for target in targets:
-    print(f"\n🚀 Starting ReconAIssance for: {target}")
-    safe = safe_name(target)
-    run_path = os.path.join("loot", safe, f"run{datetime.now().strftime('%Y%m%d%H%M%S')}")
-    os.makedirs(run_path, exist_ok=True)
-    os.environ["RECON_KI_TARGET"] = target
-    os.environ["RECON_KI_RUN_PATH"] = run_path
-    os.environ["RECON_SM_COUNT"] = "10"
-    os.environ["RECON_SM_ITER"] = "3"
-
-    for m in modules:
-        try:
-            run_module(m)
-        except subprocess.CalledProcessError:
-            print(f"[❌] Failed: {m}")
-            break
-
-    check_superscript_trigger(run_path)
-
-    if not session_exists(run_path) and not ssh_success(run_path):
-        print("[⚠️] No session found → launching fallback brute")
-        try:
-            run_module("modules/fallback_brute.py")
-        except:
-            pass
-
-    export_zip(target, run_path)
-
     try:
-        from tools.pdf_report import generate_pdf_report
-        generate_pdf_report(target, run_path)
-    except Exception as e:
-        print(f"[❌] PDF generation failed: {e}")
+        result = use_llm("shodan_query_gen", prompt)
+        raw = result.strip().split("\n")[-1]
+        logger.debug(f"LLM raw result: {raw}")
 
-print("\n✅ All targets processed.")
+        # Fix: replace single quotes with double quotes for JSON parsing
+        if raw.startswith("{") and "'" in raw and '\"' not in raw:
+            logger.warning("LLM returned JSON with single quotes – attempting auto-fix")
+            raw = raw.replace("'", '"')
+
+        if not raw.startswith("{"):
+            logger.warning("LLM did not return valid JSON format.")
+            return {"query": "", "description": "Invalid"}
+
+        return json.loads(raw)
+    except Exception as e:
+        logger.warning(f"Failed to parse LLM query: {e}")
+        return {"query": "", "description": "Invalid"}
+
+
+def get_hosts_for_query(query, key):
+    cache = load_query_cache()
+    h = hash_query(query)
+    if h in cache:
+        logger.info("Using cached Shodan query")
+        return cache[h]["ips"]
+    r = requests.get(API_SEARCH, params={"key": key, "query": query})
+    if r.status_code != 200:
+        logger.warning(f"Query failed: {r.status_code}")
+        return []
+    matches = r.json().get("matches", [])
+    ips = [m["ip_str"] for m in matches if "ip_str" in m]
+    cache[h] = {"query": query, "ips": ips, "ts": datetime.now().isoformat()}
+    save_query_cache(cache)
+    return ips
+
+def fetch_host(ip, key):
+    try:
+        r = requests.get(f"{API_HOST}{ip}?key={key}")
+        if r.status_code == 200:
+            return r.json()
+        else:
+            logger.warning(f"Host fetch failed for {ip}")
+    except Exception as e:
+        logger.warning(f"Exception getting host {ip}: {e}")
+    return None
+
+def chat_log_append(target, user_input, system_reply):
+    log_file = Path("loot") / target / "chat_history.txt"
+    log_file.parent.mkdir(parents=True, exist_ok=True)
+    with open(log_file, "a") as f:
+        f.write(f"\n[User] {user_input}\n[System] {system_reply}\n")
+
+def recon_target(ip):
+    os.environ["RECON_KI_TARGET"] = ip
+    run_path = Path("loot") / ip / f"run{datetime.now().strftime('%Y%m%d%H%M%S')}"
+    os.environ["RECON_KI_RUN_PATH"] = str(run_path)
+    run_path.mkdir(parents=True, exist_ok=True)
+
+    modules = [
+        "modules/recon.py", "tools/shodan_enricher.py", "modules/scriptmind.py",
+        "modules/cve.py", "tools/cve2exploit_map.py", "modules/exploit.py",
+        "modules/post.py", "modules/render.py"
+    ]
+    for mod in modules:
+        try:
+            logger.info(f"[📦] Running {mod}")
+            os.system(f"python3 {mod}")
+        except:
+            logger.warning(f"Module failed: {mod}")
+
+def generate_response(user_input, lang, host_count, desc):
+    prompt = f"""You are a multilingual recon assistant.
+Reply in {lang}. User said: \"{user_input}\".
+You generated the following description: {desc}.
+You found {host_count} hosts. Respond conversationally but briefly in {lang}."""
+    try:
+        return use_llm("chat_react", prompt).strip()
+    except:
+        return f"[{lang}] Found {host_count} hosts. Proceeding."
+
+def main():
+    print("🧠 Where shall I reconAIssance? :", end=" ")
+    user_input = input().strip()
+    lang = detect_language(user_input)
+    logger.info(f"Detected language: {lang}")
+
+    parsed = query_shodan(user_input)
+    query = parsed.get("query", "")
+    desc = parsed.get("description", "")
+    if not query:
+        print("❌ Could not generate a valid Shodan query.")
+        return
+
+    print(f"🔍 {desc}")
+    key = load_keys().get("shodan")
+    if not key:
+        print("❌ Missing Shodan API key.")
+        return
+
+    ips = get_hosts_for_query(query, key)
+    for ip in ips:
+        if not already_in_db(ip):
+            data = fetch_host(ip, key)
+            if data:
+                append_to_db(data)
+                logger.info(f"Stored host {ip} in DB")
+
+    reply = generate_response(user_input, lang, len(ips), desc)
+    print(f"🤖 {reply}")
+
+    # Nur „critical“ Hosts exploiten
+    critical_hosts = []
+    risk_file = Path("loot/shodan_ai_risk.json")
+    if risk_file.exists():
+        try:
+            risk_data = json.load(open(risk_file))
+            critical_hosts = [r["ip"] for r in risk_data if r.get("risk") == "critical"]
+            logger.info(f"Selected {len(critical_hosts)} critical host(s) for auto-recon.")
+        except Exception as e:
+            logger.warning(f"Risk parsing failed: {e}")
+    else:
+        logger.warning("shodan_ai_risk.json not found. No auto-exploit possible.")
+
+    if critical_hosts:
+        for ip in critical_hosts:
+            recon_target(ip)
+    else:
+        print("⚠️ No critical targets selected for recon.")
+
+    chat_log_append(query.replace(" ", "_")[:30], user_input, reply)
+
+if __name__ == "__main__":
+    main()
